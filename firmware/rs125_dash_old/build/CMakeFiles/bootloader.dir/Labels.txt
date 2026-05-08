@@ -1,0 +1,13 @@
+# Target labels
+ bootloader
+# Source files and their labels
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/CMakeFiles/bootloader
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/CMakeFiles/bootloader.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/CMakeFiles/bootloader-complete.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule
+C:/Users/draccko/Downloads/motion-dash/firmware/rs125_dash/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule

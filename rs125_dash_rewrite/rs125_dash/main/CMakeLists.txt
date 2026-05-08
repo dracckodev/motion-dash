@@ -1,0 +1,17 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "lcd_init.c"
+        "../../common/dash_ui.c"
+        "../../common/dash_state.c"
+    INCLUDE_DIRS
+        "."
+        "../../common"
+    REQUIRES
+        esp_lcd
+        esp_timer
+        driver
+        lvgl
+        esp_lvgl_port
+        freertos
+)

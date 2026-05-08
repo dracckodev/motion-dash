@@ -1,0 +1,10 @@
+^C:\USERS\DRACCKO\DOWNLOADS\MOTION-DASH\RS125_DASH_REWRITE\DASH_SIM\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/draccko/Downloads/motion-dash/rs125_dash_rewrite/dash_sim -BC:/Users/draccko/Downloads/motion-dash/rs125_dash_rewrite/dash_sim/build --check-stamp-file C:/Users/draccko/Downloads/motion-dash/rs125_dash_rewrite/dash_sim/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
