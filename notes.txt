@@ -1,0 +1,22 @@
+Changed WR pin for IO16
+Changed RS pin for IO38
+Reset is on pin IO46
+L9637D TX goes to IO18 via 1k
+L9637D RX to IO17
+Disp. CS is IO37
+Touch and SD DIN go to IO36
+CLK to IO35
+DO to IO48
+SDCS to IO47
+TCS to IO21
+
+
+C6 > disp 3v3
+C7 > disp 5v
+C9 > disp LED_A
+R4 bet mosfet 5v and ld
+R3 mosfet sign gnd
+C3 > ESP5v 
+
+CAN SN65HVD230 RXD to MTMS, TXD to MTDI
+MTDO SCL, MTCK SDA
