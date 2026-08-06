@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RS125 TFT Dash</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <canvas id="dash" width="800" height="480" aria-label="RS125 dashboard"></canvas>
+
+    <section class="dev-panel" aria-label="Live control">
+      <div class="row">
+        <button id="demoBtn" type="button">Demo</button>
+        <button id="themeBtn" type="button">Theme</button>
+        <button id="menuBtn" type="button">Menu</button>
+      </div>
+      <label>RPM <input id="rpm" type="range" min="0" max="12000" step="100" value="4500"></label>
+      <label>Speed <input id="speed" type="range" min="0" max="200" step="1" value="45"></label>
+      <label>Temp <input id="temp" type="range" min="-20" max="120" step="1" value="14"></label>
+      <label>Volt <input id="volt" type="range" min="10" max="15" step="0.1" value="12.4"></label>
+      <label>Eco <input id="eco" type="range" min="0" max="200" step="1" value="95"></label>
+      <label>Range <input id="range" type="range" min="0" max="300" step="1" value="95"></label>
+      <label>Throttle <input id="throttle" type="range" min="0" max="1" step="0.01" value="0"></label>
+      <label>Fuel <input id="fuel" type="range" min="0" max="1" step="0.01" value="1"></label>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

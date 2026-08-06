@@ -1,0 +1,109 @@
+@font-face {
+  font-family: "RSRobotoBI";
+  src: url("../fonts/Roboto-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: "RSOpenSans";
+  src: url("../fonts/OpenSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "RSOpenSans";
+  src: url("../fonts/OpenSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "RSOpenSauceOne";
+  src: url("../fonts/OpenSauceOne-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #101010;
+  color: #f4f4f4;
+  font-family: RSOpenSans, Arial, sans-serif;
+}
+
+.shell {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 800px) 220px;
+  align-content: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+}
+
+#dash {
+  width: min(100%, 800px);
+  aspect-ratio: 5 / 3;
+  display: block;
+  image-rendering: auto;
+  background: #080000;
+}
+
+.dev-panel {
+  align-self: start;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #303030;
+  background: #181818;
+  font-size: 12px;
+}
+
+.dev-panel .row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.dev-panel label {
+  display: grid;
+  gap: 3px;
+}
+
+.dev-panel button {
+  min-height: 30px;
+  border: 1px solid #555;
+  background: #242424;
+  color: #fff;
+  font: 700 12px RSOpenSans, Arial, sans-serif;
+}
+
+.dev-panel input {
+  width: 100%;
+}
+
+@media (max-width: 1040px) {
+  .shell {
+    grid-template-columns: minmax(0, 800px);
+  }
+
+  .dev-panel {
+    width: min(100%, 800px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dev-panel .row {
+    grid-column: 1 / -1;
+  }
+}

@@ -48,14 +48,23 @@ DEMO_GEAR_RPMS  = [0, 10500, 10500, 10500, 10500, 10500, 10200]
 # Both pivot points lie on a circle of radius (ARC_R_LOWER + MENU_SEPARATION)
 # centred at (ARC_CX_I, ARC_CY_I).
 
-MENU_ARC_ANGLE_TOP  = -107.3   # arc angle for the top-right pivot (~6000 RPM region)
+MENU_ARC_ANGLE_TOP  = -105.6   # arc angle for the top-right pivot (~6000 RPM region)
 MENU_ARC_ANGLE_BOT  = -113.5   # arc angle for the bottom-left pivot (~4000 RPM region)
-MENU_SEPARATION     =   8.0    # radial gap (px) from lower arc edge to both pivots
+# NOTE: ARC_R_LOWER and ARC_R_UPPER are measured from two *different* circle
+# centres (ARC_CX_I/CY_I vs ARC_CX_O/CY_O), so the band's true on-screen width
+# is NOT (ARC_R_LOWER - ARC_R_UPPER) (~12px) -- that's the difference of two
+# radii measured from different origins, not a real distance. The actual
+# physical gap between the inner edge (lower_xy) and outer edge (upper_xy) in
+# this part of the dial is ~54px. MENU_SEPARATION has to clear that full
+# width, or the button nests inside the band instead of sitting above it.
+MENU_SEPARATION     =  62.0    # radial gap (px) from lower arc edge to both pivots
 MENU_LINE_ANGLE_TOP = -20.0    # rotation of top line: negative = CCW (outward-up)
 MENU_LINE_ANGLE_BOT =  35.0    # rotation of bottom line: positive = CW
 MENU_LINE_LEN_TOP   =  82.0    # length of top line (px)
 MENU_LINE_LEN_BOT   =  58.0    # length of bottom line (px)
-MENU_OUTER_ARC_R    = 340.0    # radius of the outer closing arc
+MENU_OUTER_ARC_R    = 235.0    # radius of the outer closing arc (top edge bulge)
+MENU_CIRCLE_SEPARATION = 10.0   # radial gap: gear-circle arc offset outward from CIRCLE_R
+MENU_CIRCLE_SWEEP      = 13.5   # degrees the circle-side edge sweeps from the join point
 
 
 class DemoPlayer:
@@ -387,7 +396,7 @@ def apply_theme(idx):
 
 apply_theme(0)
 
-# ── Arc geometry ──────────────────────────────────────────────────────────────
+# ── RPM Arc geometry ──────────────────────────────────────────────────────────────
 ARC_CX_O = 788.9;  ARC_CY_O = 1545.1;  ARC_R_UPPER = 1483.4
 ARC_CX_I = 799.4;  ARC_CY_I = 1609.4;  ARC_R_LOWER = 1495.2
 
@@ -806,100 +815,74 @@ def load_font(names, size_px: int, bold=False, italic=False) -> pygame.font.Font
 # ── Menu button polygon ────────────────────────────────────────────────────────
 def _menu_polygon() -> list[tuple[int, int]]:
     """
-    Construct the closed menu-button polygon following the spec exactly:
-
-      Edge 1 – inner arc  : circle of radius (ARC_R_LOWER + MENU_SEPARATION)
-                            sampled from MENU_ARC_ANGLE_TOP to MENU_ARC_ANGLE_BOT.
-      Edge 2 – bottom line: piv_bot → tip_bot  (implicit: end of inner arc)
-      Edge 3 – outer arc  : fitted circle of radius MENU_OUTER_ARC_R through
-                            tip_bot and tip_top, centre on the "outer" (farther) side.
-      Edge 4 – top line   : tip_top → piv_top  (implicit closing edge)
-
-    Rotation convention (clockwise positive, matching spec):
-      Standard 2-D CW rotation by angle θ:
-          x' =  x·cosθ + y·sinθ
-          y' = -x·sinθ + y·cosθ
+    Rounded 3-sided polygon:
+      Edge 1 – RPM-arc side   : circle (ARC_CX_I, ARC_CY_I, ARC_R_LOWER + MENU_SEPARATION)
+      Edge 2 – gear-circle side: circle (CIRCLE_CX, CIRCLE_CY, CIRCLE_R + MENU_CIRCLE_SEPARATION)
+      Edge 3 – closing arc     : chosen radius, bulging outward
+    Edge 1 and Edge 2 meet exactly at the real intersection of those two circles
+    (no straight seam needed there).
     """
-    cx, cy  = ARC_CX_I, ARC_CY_I
-    r_inner = ARC_R_LOWER + MENU_SEPARATION
+    cx, cy   = ARC_CX_I, ARC_CY_I
+    r_inner  = ARC_R_LOWER + MENU_SEPARATION
+    gcx, gcy = CIRCLE_CX, CIRCLE_CY
+    r_gear   = CIRCLE_R + MENU_CIRCLE_SEPARATION
 
-    # ── Step 1: pivot points ──────────────────────────────────────────────────
-    def pivot(angle_deg: float) -> tuple[float, float]:
+    def pivot(angle_deg):
         a = math.radians(angle_deg)
         return cx + r_inner * math.cos(a), cy + r_inner * math.sin(a)
 
-    piv_top = pivot(MENU_ARC_ANGLE_TOP)
-    piv_bot = pivot(MENU_ARC_ANGLE_BOT)
+    def circle_intersection(c1, r1, c2, r2):
+        dx, dy = c2[0] - c1[0], c2[1] - c1[1]
+        d = math.hypot(dx, dy)
+        a = (r1 * r1 - r2 * r2 + d * d) / (2 * d)
+        h = math.sqrt(max(0.0, r1 * r1 - a * a))
+        xm, ym = c1[0] + a * dx / d, c1[1] + a * dy / d
+        rx, ry = -dy / d, dx / d
+        return (xm + h * rx, ym + h * ry), (xm - h * rx, ym - h * ry)
 
-    # ── Steps 2+3: tip points ─────────────────────────────────────────────────
-    def tip(piv: tuple[float, float],
-            arc_angle_deg: float,
-            line_angle_deg: float,
-            length: float) -> tuple[float, float]:
-        ra = math.radians(arc_angle_deg)
-        rx, ry = math.cos(ra), math.sin(ra)      # radial-outward unit vector
-        la = math.radians(line_angle_deg)
-        cos_la, sin_la = math.cos(la), math.sin(la)
-        # CW rotation
-        dx =  rx * cos_la + ry * sin_la
-        dy = -rx * sin_la + ry * cos_la
-        return piv[0] + dx * length, piv[1] + dy * length
+    def arc(center, r, a0, a1, n=24):
+        return [(center[0] + r * math.cos(math.radians(a0 + (a1 - a0) * i / n)),
+                 center[1] + r * math.sin(math.radians(a0 + (a1 - a0) * i / n)))
+                for i in range(n + 1)]
 
-    tip_top = tip(piv_top, MENU_ARC_ANGLE_TOP, MENU_LINE_ANGLE_TOP, MENU_LINE_LEN_TOP)
-    tip_bot = tip(piv_bot, MENU_ARC_ANGLE_BOT, MENU_LINE_ANGLE_BOT, MENU_LINE_LEN_BOT)
+    v_top = pivot(MENU_ARC_ANGLE_TOP)
 
-    # ── Step 4: inner arc (piv_top → piv_bot along the inner circle) ─────────
-    INNER_STEPS = 24
-    inner_arc: list[tuple[float, float]] = []
-    a_start = math.radians(MENU_ARC_ANGLE_TOP)
-    a_end   = math.radians(MENU_ARC_ANGLE_BOT)
-    for i in range(INNER_STEPS + 1):
-        t = i / INNER_STEPS
-        a = a_start + t * (a_end - a_start)
-        inner_arc.append((cx + r_inner * math.cos(a),
-                          cy + r_inner * math.sin(a)))
+    # shared vertex: true intersection of the RPM circle and the gear circle,
+    # picked as the one nearer the old MENU_ARC_ANGLE_BOT region
+    approx_bot = pivot(MENU_ARC_ANGLE_BOT)
+    p1, p2 = circle_intersection((cx, cy), r_inner, (gcx, gcy), r_gear)
+    v_join = p1 if math.hypot(p1[0]-approx_bot[0], p1[1]-approx_bot[1]) < \
+                   math.hypot(p2[0]-approx_bot[0], p2[1]-approx_bot[1]) else p2
 
-    # ── Step 5: outer arc (tip_bot → tip_top) ────────────────────────────────
-    def outer_arc_pts(p1: tuple[float, float],
-                      p2: tuple[float, float],
-                      r: float) -> list[tuple[float, float]]:
-        mx = (p1[0] + p2[0]) / 2
-        my = (p1[1] + p2[1]) / 2
-        ddx = p2[0] - p1[0]
-        ddy = p2[1] - p1[1]
+    a_join_arc  = math.degrees(math.atan2(v_join[1] - cy,  v_join[0] - cx))
+    a_join_gear = math.degrees(math.atan2(v_join[1] - gcy, v_join[0] - gcx))
+    a_v3   = a_join_gear - MENU_CIRCLE_SWEEP
+    v3     = (gcx + r_gear * math.cos(math.radians(a_v3)),
+              gcy + r_gear * math.sin(math.radians(a_v3)))
+
+    def closing_arc(pa, pb, r):
+        mx, my   = (pa[0]+pb[0])/2, (pa[1]+pb[1])/2
+        ddx, ddy = pb[0]-pa[0], pb[1]-pa[1]
         d = math.hypot(ddx, ddy)
-        if d < 1e-6:
-            return [p1, p2]
-        h = math.sqrt(max(0.0, r * r - (d / 2) ** 2))
-        perp_x, perp_y = -ddy / d, ddx / d
-        c1 = (mx + h * perp_x, my + h * perp_y)
-        c2 = (mx - h * perp_x, my - h * perp_y)
-        # Pick centre farther from the inner arc centre (outer side)
-        d1 = math.hypot(c1[0] - cx, c1[1] - cy)
-        d2 = math.hypot(c2[0] - cx, c2[1] - cy)
-        ocx, ocy = (c1 if d1 > d2 else c2)
-
-        a1 = math.atan2(p1[1] - ocy, p1[0] - ocx)
-        a2 = math.atan2(p2[1] - ocy, p2[0] - ocx)
+        h = math.sqrt(max(0.0, r*r - (d/2)**2))
+        px, py = -ddy/d, ddx/d
+        c1, c2 = (mx+h*px, my+h*py), (mx-h*px, my-h*py)
+        d1 = math.hypot(c1[0]-cx, c1[1]-cy)
+        d2 = math.hypot(c2[0]-cx, c2[1]-cy)
+        ocx, ocy = c1 if d1 < d2 else c2   # nearer centre -> bulges outward
+        a1 = math.atan2(pa[1]-ocy, pa[0]-ocx)
+        a2 = math.atan2(pb[1]-ocy, pb[0]-ocx)
         da = a2 - a1
         if da >  math.pi: da -= 2 * math.pi
         if da < -math.pi: da += 2 * math.pi
+        return [(ocx + r*math.cos(a1 + da*i/24), ocy + r*math.sin(a1 + da*i/24))
+                for i in range(25)]
 
-        OUTER_STEPS = 24
-        pts = []
-        for i in range(OUTER_STEPS + 1):
-            t = i / OUTER_STEPS
-            a = a1 + da * t
-            pts.append((ocx + r * math.cos(a), ocy + r * math.sin(a)))
-        return pts
+    edge_rpm    = arc((cx, cy),   r_inner, MENU_ARC_ANGLE_TOP, a_join_arc)
+    edge_circle = arc((gcx, gcy), r_gear,  a_join_gear,         a_v3)
+    edge_close  = closing_arc(v3, v_top, MENU_OUTER_ARC_R)
 
-    outer_arc = outer_arc_pts(tip_bot, tip_top, MENU_OUTER_ARC_R)
-
-    # ── Step 6: assemble ──────────────────────────────────────────────────────
-    # inner_arc: piv_top → piv_bot
-    # outer_arc: tip_bot → tip_top  (implicitly joined by the two line segments)
-    poly_f = inner_arc + outer_arc
-
+    poly_f = edge_rpm + edge_circle + edge_close
     return [(int(round(p[0])), int(round(p[1]))) for p in poly_f]
 
 
@@ -928,7 +911,6 @@ def point_in_poly(px: float, py: float, poly: list[tuple[int, int]]) -> bool:
     return inside
 
 
-# ── draw_menu_button ──────────────────────────────────────────────────────────
 def draw_menu_button(surf: pygame.Surface, mouse_pos: tuple[int, int] | None = None):
     poly = _get_menu_poly()
     if not poly:
@@ -947,12 +929,26 @@ def draw_menu_button(surf: pygame.Surface, mouse_pos: tuple[int, int] | None = N
     xs = [p[0] for p in poly]
     ys = [p[1] for p in poly]
     label_cx = (min(xs) + max(xs)) // 2
-    label_cy = (min(ys) + max(ys)) // 2
+    label_cy = (min(ys) + max(ys)) // 2 - 2
 
-    f   = load_font(["OpenSans-Regular.ttf", "Open Sans", "Arial"], 15)
-    lbl = f.render("MENU", True, WHITE)
+    f = load_font(["OpenSans-Bold.ttf", "Open Sans", "Arial"], 18, bold=True)
+    lbl = _render_tracked(f, "MENU", WHITE, tracking_px=3)
     surf.blit(lbl, (label_cx - lbl.get_width() // 2,
                     label_cy - lbl.get_height() // 2))
+
+
+def _render_tracked(font: pygame.font.Font, text: str, color, tracking_px: int = 0) -> pygame.Surface:
+    """Render text with extra letter-spacing (tracking) for a more deliberate,
+    designed look on short HMI labels than pygame's default cramped kerning."""
+    glyphs = [font.render(ch, True, color) for ch in text]
+    total_w = sum(g.get_width() for g in glyphs) + tracking_px * (len(glyphs) - 1)
+    height = max(g.get_height() for g in glyphs)
+    out = pygame.Surface((total_w, height), pygame.SRCALPHA)
+    x = 0
+    for g in glyphs:
+        out.blit(g, (x, 0))
+        x += g.get_width() + tracking_px
+    return out
 
 
 BRIGHTNESS = [1.0]
@@ -1284,8 +1280,9 @@ def main():
 
     f_spd      = load_font(["Roboto-BoldItalic.ttf", "Roboto", "Arial"], 162, bold=True, italic=True)
     f_kmh      = load_font(["OpenSans-Regular.ttf", "Open Sans", "Arial"], 28)
+    f_kmh.set_italic(True)
     f_gear_val = load_font(["OpenSauceOne-Bold.ttf", "OpenSauceOne", "Arial"], 96, bold=True)
-    f_gear_lbl = load_font(["OpenSauceOne-Regular.ttf", "OpenSauceOne", "Arial"], 25)
+    f_gear_lbl = load_font(["Roboto-BoldItalic.ttf", "Roboto", "Arial"], 25, bold=True, italic=True)
     f_val      = load_font(["OpenSans-Bold.ttf", "Open Sans", "Arial"], 26, bold=True)
     f_lbl      = load_font(["OpenSans-Regular.ttf", "Open Sans", "Arial"], 20)
     f_unit     = load_font(["OpenSans-Regular.ttf", "Open Sans", "Arial"], 17)
@@ -1354,10 +1351,7 @@ def main():
                             BRIGHTNESS[0] = max(0.05, min(1.0, rel))
 
                 else:
-                    if point_in_poly(mx, my, _get_menu_poly()):
-                        menu_state["open"] = True
-
-                    elif mx < 170 and 57 < my < 200:
+                    if mx < 170 and 57 < my < 200:
                         if not demo.active:
                             gi = (gi + 1) % len(gears)
                             state["gear"] = gears[gi]
@@ -1445,8 +1439,6 @@ def main():
             draw_speed(screen, f_spd, f_kmh, disp_speed, blink_on)
             draw_fuel_gauge(screen, f_lbl, f_tick, state["fuel"])
             draw_gear(screen, f_gear_val, f_gear_lbl, state["gear"])
-
-            draw_menu_button(screen, pygame.mouse.get_pos())
 
             if BRIGHTNESS[0] < 1.0:
                 dim = pygame.Surface((W, H), pygame.SRCALPHA)
