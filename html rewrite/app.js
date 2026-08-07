@@ -38,8 +38,8 @@ const TICK_LABEL_OVERRIDES = {
 
 const MAX_RPM = 12000;
 const REDLINE_RPM = 9500;
-const GLOW_BLEED_PX = 60;
-const GLOW_BLEED_ALPHA = 110;
+const GLOW_BLEED_PX = 32;
+const GLOW_BLEED_ALPHA = 42;
 const RPM_SMOOTHNESS = 10.0;
 const SPEED_SMOOTHNESS = 8.0;
 const TICK_LIGHT_WIDTH_RPM = 600;
@@ -51,7 +51,7 @@ const THEMES = [
   { name: "Dark Amber", tick_contrast: false, BG: [8, 4, 0], RED: [255, 160, 0], RED_MED: [180, 100, 0], RED_DIM: [90, 45, 0], RED_DARK: [22, 10, 0], WHITE: [255, 255, 220], GREY: [170, 150, 100] },
   { name: "Dark Purple", tick_contrast: false, BG: [5, 0, 10], RED: [200, 80, 255], RED_MED: [130, 40, 180], RED_DIM: [60, 15, 90], RED_DARK: [15, 3, 22], WHITE: [255, 240, 255], GREY: [160, 130, 180] },
   { name: "Dark Mono", tick_contrast: true, BG: [5, 5, 5], RED: [220, 220, 220], RED_MED: [140, 140, 140], RED_DIM: [60, 60, 60], RED_DARK: [18, 18, 18], WHITE: [255, 255, 255], GREY: [150, 150, 150] },
-  { name: "Light Red", tick_contrast: true, BG: [245, 232, 232], RED: [200, 20, 20], RED_MED: [160, 60, 60], RED_DIM: [210, 170, 170], RED_DARK: [232, 215, 215], WHITE: [30, 20, 20], GREY: [110, 80, 80] },
+  { name: "Light Red", tick_contrast: false, BG: [245, 232, 232], RED: [200, 20, 20], RED_MED: [160, 60, 60], RED_DIM: [210, 170, 170], RED_DARK: [232, 215, 215], WHITE: [30, 20, 20], GREY: [110, 80, 80] },
   { name: "Light Blue", tick_contrast: true, BG: [228, 238, 252], RED: [20, 80, 210], RED_MED: [60, 110, 185], RED_DIM: [170, 195, 232], RED_DARK: [212, 223, 243], WHITE: [15, 25, 50], GREY: [75, 100, 135] },
   { name: "Light Green", tick_contrast: false, BG: [228, 248, 233], RED: [20, 170, 55], RED_MED: [50, 130, 75], RED_DIM: [170, 220, 180], RED_DARK: [212, 238, 218], WHITE: [10, 35, 18], GREY: [70, 120, 85] },
   { name: "Light Amber", tick_contrast: true, BG: [252, 244, 225], RED: [190, 110, 0], RED_MED: [200, 150, 50], RED_DIM: [232, 207, 155], RED_DARK: [244, 230, 200], WHITE: [35, 22, 0], GREY: [125, 100, 50] },
@@ -80,7 +80,7 @@ const ARC_CY_I = 1609.4;
 const ARC_R_LOWER = 1495.2;
 const STEPS = 600;
 const LINE_W = 3;
-const _ARC_ANGLE_AT_ZERO = -122.2284;
+const _ARC_ANGLE_AT_ZERO = -122.38;
 const _ARC_ANGLE_AT_MAX = -89.5713;
 const ARC_A_START = _ARC_ANGLE_AT_ZERO;
 const ARC_A_END = _ARC_ANGLE_AT_MAX;
@@ -99,6 +99,15 @@ const VCOL_D = 575;
 const TICK_LABEL_R = ARC_R_LOWER + 18;
 const UNIT_OFFSET_Y = -4;
 const BRIGHTNESS = { value: 1.0 };
+const HEX_GRID_SKEW_X = 0;
+const ALERT_RECT = { x: 242, y: 316, w: 538, h: 27 };
+const ALERT_EDGE_SKEW = 18;
+const ALERT_LEVELS = {
+  info: { label: "INFO", color: [80, 180, 255] },
+  warning: { label: "WARNING", color: [255, 190, 40] },
+  serious: { label: "SERIOUS", color: [255, 112, 32] },
+  critical: { label: "CRITICAL", color: [255, 49, 49] },
+};
 
 const FONTS = {
   speed: '700 italic 162px "RSRobotoBI", Roboto, Arial, sans-serif',
@@ -110,6 +119,8 @@ const FONTS = {
   unit: '400 17px "RSOpenSans", "Open Sans", Arial, sans-serif',
   tick: '700 italic 20px "RSRobotoBI", Roboto, Arial, sans-serif',
   menu: '700 18px "RSOpenSans", "Open Sans", Arial, sans-serif',
+  alertLabel: '700 13px "RSOpenSans", "Open Sans", Arial, sans-serif',
+  alertText: '700 17px "RSOpenSans", "Open Sans", Arial, sans-serif',
 };
 
 class DemoPlayer {
@@ -269,6 +280,15 @@ function tickLitColour() {
   return CURRENT.WHITE.map((c) => 255 - c);
 }
 
+function gaugeSeparatorColour(isFilled) {
+  return isFilled ? tickLitColour() : CURRENT.RED;
+}
+
+function inkForColor(c) {
+  const luma = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  return luma > 150 ? [0, 0, 0] : [255, 255, 255];
+}
+
 function rad(deg) {
   return deg * Math.PI / 180;
 }
@@ -290,6 +310,11 @@ function upperXy(angleDeg) {
 function lowerXy(angleDeg) {
   const a = rad(angleDeg);
   return [ARC_CX_I + ARC_R_LOWER * Math.cos(a), ARC_CY_I + ARC_R_LOWER * Math.sin(a)];
+}
+
+function lowerAngleForX(x) {
+  const cosArg = clamp((x - ARC_CX_I) / ARC_R_LOWER, -1.0, 1.0);
+  return clamp(deg(-Math.acos(cosArg)), ARC_A_START, ARC_A_END);
 }
 
 function arcPts(fn, a0, a1, n) {
@@ -324,6 +349,22 @@ function strokeLine(cx, p1, p2, color, width) {
   cx.strokeStyle = color;
   cx.lineWidth = width;
   cx.lineCap = "butt";
+  cx.lineJoin = "round";
+  cx.miterLimit = 2;
+  cx.stroke();
+}
+
+function strokePolyline(cx, pts, color, width, closed = false) {
+  if (pts.length < 2) return;
+  cx.beginPath();
+  cx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i += 1) cx.lineTo(pts[i][0], pts[i][1]);
+  if (closed) cx.closePath();
+  cx.strokeStyle = color;
+  cx.lineWidth = width;
+  cx.lineCap = "butt";
+  cx.lineJoin = "round";
+  cx.miterLimit = 2;
   cx.stroke();
 }
 
@@ -347,18 +388,33 @@ function drawTextTopLeft(cx, text, font, color, x, y) {
   cx.fillStyle = color;
   cx.textAlign = "left";
   cx.textBaseline = "alphabetic";
-  const m = cx.measureText(text);
-  const ascent = m.actualBoundingBoxAscent || parseFontPx(font) * 0.8;
+  const ascent = fontBox(font).ascent;
   cx.fillText(text, x, y + ascent);
+}
+
+function drawGlowingTextTopLeft(cx, text, font, color, x, y, glowColor) {
+  cx.save();
+  cx.shadowColor = rgba(glowColor, 0.72);
+  cx.shadowOffsetX = 0;
+  cx.shadowOffsetY = 0;
+  for (const [blur, alpha] of [[18, 0.38], [9, 0.68], [3, 0.95]]) {
+    cx.shadowBlur = blur;
+    drawTextTopLeft(cx, text, font, rgba(color, alpha), x, y);
+  }
+  cx.restore();
+  drawTextTopLeft(cx, text, font, rgb(color), x, y);
 }
 
 function measureText(cx, text, font) {
   cx.font = font;
   const m = cx.measureText(text);
-  const size = parseFontPx(font);
-  const ascent = m.actualBoundingBoxAscent || size * 0.8;
-  const descent = m.actualBoundingBoxDescent || size * 0.2;
+  const { ascent, descent } = fontBox(font);
   return { width: m.width, height: ascent + descent, ascent, descent };
+}
+
+function fontBox(font) {
+  const size = parseFontPx(font);
+  return { ascent: size * 0.8, descent: size * 0.2 };
 }
 
 function parseFontPx(font) {
@@ -391,20 +447,23 @@ function makeHexGrid() {
   const R = 27;
   const dx = R * Math.sqrt(3);
   const dy = R * 1.5;
+  const skewPadCols = Math.ceil(Math.abs(HEX_GRID_SKEW_X) * H / dx) + 4;
   const brightness = (CURRENT.BG[0] + CURRENT.BG[1] + CURRENT.BG[2]) / 3;
   let fill;
   let outline;
   if (brightness < 128) {
-    fill = rgba(CURRENT.RED_DARK, 128 / 255);
-    outline = rgba(CURRENT.RED_MED, 128 / 255);
+    fill = rgba(CURRENT.RED_DARK, 76 / 255);
+    outline = rgba(CURRENT.RED_MED, 84 / 255);
   } else {
     const fillCol = CURRENT.BG.map((c) => clamp(c - 15, 0, 255));
     const outlineCol = CURRENT.BG.map((c) => clamp(c - 30, 0, 255));
-    fill = rgba(fillCol, 210 / 255);
-    outline = rgba(outlineCol, 1);
+    fill = rgba(fillCol, 145 / 255);
+    outline = rgba(outlineCol, 165 / 255);
   }
+  cx.save();
+  cx.setTransform(1, 0, HEX_GRID_SKEW_X, 1, -HEX_GRID_SKEW_X * H / 2, 0);
   for (let row = -1; row < Math.trunc(H / dy) + 4; row += 1) {
-    for (let ci = -1; ci < Math.trunc(W / dx) + 4; ci += 1) {
+    for (let ci = -skewPadCols; ci < Math.trunc(W / dx) + skewPadCols + 4; ci += 1) {
       const hx = ci * dx + (row % 2 ? dx / 2 : 0);
       const hy = row * dy;
       const pts = [];
@@ -421,6 +480,7 @@ function makeHexGrid() {
       cx.stroke();
     }
   }
+  cx.restore();
   return off;
 }
 
@@ -429,9 +489,7 @@ function drawArcBand(cx, rpm) {
   const upperAll = arcPts(upperXy, ARC_A_START, ARC_A_END, STEPS);
   const lowerAll = arcPts(lowerXy, ARC_A_START, ARC_A_END, STEPS);
 
-  for (let i = 0; i < upperAll.length - 1; i += 1) {
-    fillPolygon(cx, ipts([upperAll[i], upperAll[i + 1], lowerAll[i + 1], lowerAll[i]]), rgb(CURRENT.RED_DARK));
-  }
+  fillPolygon(cx, upperAll.concat([...lowerAll].reverse()), rgb(CURRENT.RED_DARK));
 
   const targetAngle = rpmAngle(rpm);
   let barEdgeX = null;
@@ -440,16 +498,17 @@ function drawArcBand(cx, rpm) {
     const spanFrac = (targetAngle - ARC_A_START) / Math.max(1e-6, ARC_A_END - ARC_A_START);
     const nPts = Math.max(3, Math.ceil(STEPS * spanFrac));
     const upperLit = arcPts(upperXy, ARC_A_START, targetAngle, nPts);
-    const lowerLit = arcPts(lowerXy, ARC_A_START, targetAngle, nPts);
-    fillPolygon(cx, ipts(upperLit.concat([...lowerLit].reverse())), rgb(rgbBase));
     const edgeUp = upperXy(targetAngle);
-    const edgeLo = lowerXy(targetAngle);
-    barEdgeX = (edgeUp[0] + edgeLo[0]) / 2.0;
+    const lowerCapAngle = targetAngle >= ARC_A_END - 1e-6 ? targetAngle : lowerAngleForX(edgeUp[0]);
+    const lowerLit = arcPts(lowerXy, ARC_A_START, Math.min(targetAngle, lowerCapAngle), nPts);
+    const edgeLo = lowerLit[lowerLit.length - 1];
+    fillPolygon(cx, upperLit.concat([edgeLo], [...lowerLit].reverse()), rgb(rgbBase));
+    barEdgeX = edgeUp[0];
   }
 
   const upLast = upperAll[upperAll.length - 1];
   const loLast = lowerAll[lowerAll.length - 1];
-  fillPolygon(cx, ipts([upLast, loLast, [W, loLast[1]], [W, upLast[1]]]), rgb(CURRENT.RED_DARK));
+  fillPolygon(cx, [upLast, loLast, [W, loLast[1]], [W, upLast[1]]], rgb(CURRENT.RED_DARK));
 
   const tGlow = clamp(rpm / 1000.0, 0.0, 1.0) * THROTTLE_GLOW_SCALE;
   const glowPx = GLOW_BLEED_PX * tGlow;
@@ -468,7 +527,7 @@ function drawArcBand(cx, rpm) {
       let a0 = targetAngle + gi * stepAngle;
       let a1 = targetAngle + (gi + 1) * stepAngle;
       if (a1 > ARC_A_END) a1 = ARC_A_END;
-      fillPolygon(cx, ipts([upperXy(a0), upperXy(a1), lowerXy(a1), lowerXy(a0)]), rgba(rgbBase, alpha / 255));
+      fillPolygon(cx, [upperXy(a0), upperXy(a1), lowerXy(a1), lowerXy(a0)], rgba(rgbBase, alpha / 255));
     }
   }
 
@@ -485,23 +544,19 @@ function drawArcBand(cx, rpm) {
     return null;
   }
 
-  for (let i = 0; i < upperAll.length - 1; i += 1) {
-    strokeLine(cx, [Math.trunc(upperAll[i][0]), Math.trunc(upperAll[i][1])], [Math.trunc(upperAll[i + 1][0]), Math.trunc(upperAll[i + 1][1])], rgb(CURRENT.RED), LINE_W);
-  }
-  strokeLine(cx, [Math.trunc(upLast[0]), Math.trunc(upLast[1])], [W, Math.trunc(upLast[1])], rgb(CURRENT.RED_DARK), LINE_W);
+  strokePolyline(cx, upperAll, rgb(CURRENT.RED), LINE_W);
+  strokeLine(cx, upLast, [W, upLast[1]], rgb(CURRENT.RED_DARK), LINE_W);
 
-  for (let i = 0; i < lowerAll.length - 1; i += 1) {
-    strokeLine(cx, [Math.trunc(lowerAll[i][0]), Math.trunc(lowerAll[i][1])], [Math.trunc(lowerAll[i + 1][0]), Math.trunc(lowerAll[i + 1][1])], rgb(CURRENT.RED), Math.max(1, LINE_W - 1));
-  }
-  strokeLine(cx, [Math.trunc(loLast[0]), Math.trunc(loLast[1])], [W, Math.trunc(loLast[1])], rgb(CURRENT.RED_DARK), Math.max(1, LINE_W - 1));
+  strokePolyline(cx, lowerAll, rgb(CURRENT.RED), Math.max(1, LINE_W - 1));
+  strokeLine(cx, loLast, [W, loLast[1]], rgb(CURRENT.RED_DARK), Math.max(1, LINE_W - 1));
 
   for (let i = 0; i < upperAll.length - 1; i += 1) {
     const col = outlineCol(i / Math.max(1, upperAll.length - 2));
-    if (col) strokeLine(cx, [Math.trunc(upperAll[i][0]), Math.trunc(upperAll[i][1])], [Math.trunc(upperAll[i + 1][0]), Math.trunc(upperAll[i + 1][1])], rgb(col), LINE_W);
+    if (col) strokeLine(cx, upperAll[i], upperAll[i + 1], rgb(col), LINE_W);
   }
   for (let i = 0; i < lowerAll.length - 1; i += 1) {
     const col = outlineCol(i / Math.max(1, lowerAll.length - 2));
-    if (col) strokeLine(cx, [Math.trunc(lowerAll[i][0]), Math.trunc(lowerAll[i][1])], [Math.trunc(lowerAll[i + 1][0]), Math.trunc(lowerAll[i + 1][1])], rgb(col), Math.max(1, LINE_W - 1));
+    if (col) strokeLine(cx, lowerAll[i], lowerAll[i + 1], rgb(col), Math.max(1, LINE_W - 1));
   }
 
   const tickRpms = [2000, 4000, 6000, 8000, 10000];
@@ -632,31 +687,52 @@ function drawSpeed(cx, speed, blinkOn = false) {
   let spdCol = CURRENT.WHITE;
   let kmhCol = CURRENT.GREY;
   if (blinkOn) {
-    for (let r = 130; r > 0; r -= 1) {
-      const t = r / 130;
-      const alpha = Math.trunc(80 * (1.0 - t) ** 2);
-      if (alpha <= 0) continue;
-      const wEl = Math.trunc(r * 2 * (s.width / 160.0));
-      cx.beginPath();
-      cx.ellipse(spdCx, spdCy, Math.max(1, wEl) / 2, r, 0, 0, Math.PI * 2);
-      cx.fillStyle = rgba([255, 49, 49], alpha / 255);
-      cx.fill();
-    }
-    for (let r = 45; r > 0; r -= 1) {
-      const t = r / 45;
-      const alpha = Math.trunc(60 * (1.0 - t) ** 2);
-      if (alpha <= 0) continue;
-      const wEl = Math.trunc(r * 2 * (u.width / 55.0));
-      cx.beginPath();
-      cx.ellipse(kmhCx, kmhCy, Math.max(1, wEl) / 2, r, 0, 0, Math.PI * 2);
-      cx.fillStyle = rgba([255, 49, 49], alpha / 255);
-      cx.fill();
-    }
-    spdCol = [255, 49, 49];
-    kmhCol = [255, 49, 49];
+    const warningRed = [255, 49, 49];
+    drawGlowingTextTopLeft(cx, speedText, FONTS.speed, warningRed, spdX, spdY, warningRed);
+    drawGlowingTextTopLeft(cx, unitText, FONTS.kmh, warningRed, kmhX, kmhY, warningRed);
+    return;
   }
   drawTextTopLeft(cx, speedText, FONTS.speed, rgb(spdCol), spdX, spdY);
   drawTextTopLeft(cx, unitText, FONTS.kmh, rgb(kmhCol), kmhX, kmhY);
+}
+
+function drawAlert(cx, alert) {
+  if (!alert || !alert.message) return;
+  const level = ALERT_LEVELS[alert.level] || ALERT_LEVELS.info;
+  const r = ALERT_RECT;
+  const pts = [
+    [r.x + ALERT_EDGE_SKEW, r.y],
+    [r.x + r.w, r.y],
+    [r.x + r.w - 8, r.y + r.h],
+    [r.x, r.y + r.h],
+  ];
+  const bgLuma = (CURRENT.BG[0] + CURRENT.BG[1] + CURRENT.BG[2]) / 3;
+  const panelBg = bgLuma < 128 ? rgba(CURRENT.BG.map((c) => clamp(c + 10, 0, 255)), 0.92) : rgba(CURRENT.BG.map((c) => clamp(c - 14, 0, 255)), 0.92);
+  const accent = level.color;
+
+  fillPolygon(cx, pts, panelBg);
+  strokePolyline(cx, pts, rgba(accent, 0.9), 1.5, true);
+  fillPolygon(cx, [[r.x + ALERT_EDGE_SKEW, r.y], [r.x + 88, r.y], [r.x + 72, r.y + r.h], [r.x, r.y + r.h]], rgba(accent, 0.95));
+
+  cx.save();
+  cx.beginPath();
+  cx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i += 1) cx.lineTo(pts[i][0], pts[i][1]);
+  cx.closePath();
+  cx.clip();
+  fillTextCentered(cx, level.label, FONTS.alertLabel, rgb(inkForColor(accent)), r.x + 43, r.y + r.h / 2);
+  const textX = r.x + 104;
+  const maxTextW = r.w - 124;
+  const rawMsg = String(alert.message).toUpperCase();
+  let msg = rawMsg;
+  let msgLen = rawMsg.length;
+  cx.font = FONTS.alertText;
+  while (msgLen > 1 && cx.measureText(msg).width > maxTextW) {
+    msgLen -= 1;
+    msg = `${rawMsg.slice(0, msgLen)}...`;
+  }
+  drawTextTopLeft(cx, msg, FONTS.alertText, rgb(CURRENT.WHITE), textX, r.y + 5);
+  cx.restore();
 }
 
 function drawGear(cx, gear) {
@@ -856,7 +932,8 @@ function drawFuelGauge(cx, fuel) {
   const LINE_BOT_LEN = 35;
   const BAND_SPACING = 35;
   const LEFT_ARC_R = GEAR_R;
-  const SEP_EXTEND = 2;
+  const SEP_EXTEND = 0.75;
+  const SEP_W = 1.25;
   const N_SEG = 6;
   const STEPS_ARC = 40;
 
@@ -869,7 +946,7 @@ function drawFuelGauge(cx, fuel) {
     return [origin[0] - length * Math.cos(a), origin[1] - length * Math.sin(a)];
   }
   function ipt(p) {
-    return [Math.round(p[0]), Math.round(p[1])];
+    return [p[0], p[1]];
   }
   function leftArcCentre(p1, p2, r) {
     const mx = (p1[0] + p2[0]) / 2;
@@ -892,12 +969,11 @@ function drawFuelGauge(cx, fuel) {
     if (da > Math.PI) da -= 2 * Math.PI;
     if (da < -Math.PI) da += 2 * Math.PI;
     const pts = [];
-    for (let s = 0; s <= 60; s += 1) pts.push(ipt([cx2 + r * Math.cos(a1 + da * s / 60), cy2 + r * Math.sin(a1 + da * s / 60)]));
+    for (let s = 0; s <= 60; s += 1) pts.push([cx2 + r * Math.cos(a1 + da * s / 60), cy2 + r * Math.sin(a1 + da * s / 60)]);
     return pts;
   }
   function drawLeftArc(p1, p2, r, col, width) {
-    const pts = leftArcPts(p1, p2, r);
-    for (let s = 0; s < pts.length - 1; s += 1) strokeLine(cx, pts[s], pts[s + 1], col, width);
+    strokePolyline(cx, leftArcPts(p1, p2, r), col, width);
   }
   function sampleArc(pts, frac) {
     if (pts.length < 2) return pts[0];
@@ -907,7 +983,7 @@ function drawFuelGauge(cx, fuel) {
     if (i >= pts.length - 1) return pts[pts.length - 1];
     const p1 = pts[i];
     const p2 = pts[i + 1];
-    return [Math.trunc(p1[0] + (p2[0] - p1[0]) * t), Math.trunc(p1[1] + (p2[1] - p1[1]) * t)];
+    return [p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t];
   }
 
   const rRight = GEAR_R - LINE_TOP_DIST;
@@ -922,8 +998,9 @@ function drawFuelGauge(cx, fuel) {
   const botLeftInner = ptAlong(botRightInner, LINE_BOT_DIR, LINE_BOT_LEN - BAND_SPACING);
 
   fuel = clamp(fuel, 0.0, 1.0);
-  const low = fuel < 0.2;
-  const nLit = Math.round(fuel * N_SEG);
+  const lowFuelThreshold = 1 / N_SEG;
+  const low = fuel > 0 && fuel < lowFuelThreshold;
+  const nLit = fuel <= 0 ? 0 : Math.ceil(fuel * N_SEG - 1e-9);
   const outerLeftPts = leftArcPts(botLeftOuter, topLeftOuter, LEFT_ARC_R);
   const segs = [];
   for (let i = 0; i < N_SEG; i += 1) {
@@ -940,12 +1017,13 @@ function drawFuelGauge(cx, fuel) {
     fillPolygon(cx, [roLo, roHi, loHi, loLo], rgb(col));
   }
 
-  for (let i = 0; i < STEPS_ARC; i += 1) {
-    const a0 = LINE_BOT_ANGLE + i / STEPS_ARC * (LINE_TOP_ANGLE - LINE_BOT_ANGLE);
-    const a1 = LINE_BOT_ANGLE + (i + 1) / STEPS_ARC * (LINE_TOP_ANGLE - LINE_BOT_ANGLE);
-    strokeLine(cx, ipt(ptOnCircle(rRight, a0)), ipt(ptOnCircle(rRight, a1)), rgb(CURRENT.RED), LINE_W);
+  const rightArcPts = [];
+  for (let i = 0; i <= STEPS_ARC; i += 1) {
+    const a = LINE_BOT_ANGLE + i / STEPS_ARC * (LINE_TOP_ANGLE - LINE_BOT_ANGLE);
+    rightArcPts.push(ptOnCircle(rRight, a));
   }
 
+  strokePolyline(cx, rightArcPts, rgb(CURRENT.RED), LINE_W);
   strokeLine(cx, ipt(topRightOuter), ipt(topLeftOuter), rgb(CURRENT.RED), LINE_W);
   strokeLine(cx, ipt(botRightOuter), ipt(botLeftOuter), rgb(CURRENT.RED), LINE_W);
   drawLeftArc(topLeftOuter, botLeftOuter, LEFT_ARC_R, rgb(CURRENT.RED), LINE_W);
@@ -953,19 +1031,20 @@ function drawFuelGauge(cx, fuel) {
   for (let i = 0; i < segs.length; i += 1) {
     if (i === 0) continue;
     const [roLo,, loLo] = segs[i];
-    const divCol = i < nLit + 1 ? CURRENT.WHITE : CURRENT.RED;
+    const divOnFilledArea = i < nLit;
+    const divCol = low && i === nLit ? [255, 49, 49] : gaugeSeparatorColour(divOnFilledArea);
     const dx = loLo[0] - roLo[0];
     const dy = loLo[1] - roLo[1];
     const d = Math.hypot(dx, dy);
     let p1 = roLo;
     let p2 = loLo;
     if (d > 0) {
-      const ex = Math.trunc(SEP_EXTEND * dx / d);
-      const ey = Math.trunc(SEP_EXTEND * dy / d);
+      const ex = SEP_EXTEND * dx / d;
+      const ey = SEP_EXTEND * dy / d;
       p1 = [roLo[0] - ex, roLo[1] - ey];
       p2 = [loLo[0] + ex, loLo[1] + ey];
     }
-    strokeLine(cx, p1, p2, rgb(divCol), 1);
+    strokeLine(cx, p1, p2, rgb(divCol), SEP_W);
   }
 
   const fPos = sampleArc(outerLeftPts, 1.0);
@@ -988,6 +1067,7 @@ const state = {
   time: "19:22",
   throttle: 0.0,
   fuel: 1.0,
+  alert: null,
   _rebuildHex: false,
 };
 const gears = ["N", "1", "2", "3", "4", "5", "6"];
@@ -1145,6 +1225,7 @@ function frame(now) {
     drawArcBand(ctx, dispRpm);
     drawTicks(ctx, dispRpm);
     drawSpeed(ctx, dispSpeed, blinkOn);
+    drawAlert(ctx, state.alert);
     drawFuelGauge(ctx, state.fuel);
     drawGear(ctx, state.gear);
     if (BRIGHTNESS.value < 1.0) {
@@ -1187,6 +1268,16 @@ function buildDevControls() {
   });
   document.getElementById("menuBtn")?.addEventListener("click", () => {
     menuState.open = !menuState.open;
+  });
+  document.getElementById("sendAlertBtn")?.addEventListener("click", () => {
+    const levelEl = document.getElementById("alertLevel");
+    const msgEl = document.getElementById("alertMessage");
+    const level = ALERT_LEVELS[levelEl?.value] ? levelEl.value : "info";
+    const message = String(msgEl?.value || "").trim();
+    state.alert = message ? { level, message } : null;
+  });
+  document.getElementById("clearAlertBtn")?.addEventListener("click", () => {
+    state.alert = null;
   });
 }
 
@@ -1236,6 +1327,12 @@ window.RS125 = {
   applyTheme(i) {
     applyTheme(i);
     state._rebuildHex = true;
+  },
+  setAlert(level, message) {
+    state.alert = message ? { level: ALERT_LEVELS[level] ? level : "info", message: String(message) } : null;
+  },
+  clearAlert() {
+    state.alert = null;
   },
   get themeIndex() {
     return themeIndex;

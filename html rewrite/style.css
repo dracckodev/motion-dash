@@ -89,8 +89,23 @@ body {
   font: 700 12px RSOpenSans, Arial, sans-serif;
 }
 
-.dev-panel input {
+.dev-panel input,
+.dev-panel select {
   width: 100%;
+}
+
+.dev-panel input[type="text"],
+.dev-panel select {
+  min-height: 28px;
+  border: 1px solid #555;
+  background: #242424;
+  color: #fff;
+  font: 400 12px RSOpenSans, Arial, sans-serif;
+  padding: 0 8px;
+}
+
+.dev-panel .alert-actions {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 @media (max-width: 1040px) {

@@ -25,6 +25,19 @@
       <label>Range <input id="range" type="range" min="0" max="300" step="1" value="95"></label>
       <label>Throttle <input id="throttle" type="range" min="0" max="1" step="0.01" value="0"></label>
       <label>Fuel <input id="fuel" type="range" min="0" max="1" step="0.01" value="1"></label>
+      <label>Alert
+        <select id="alertLevel">
+          <option value="info">Information</option>
+          <option value="warning">Warning</option>
+          <option value="serious">Serious warning</option>
+          <option value="critical">Critical warning</option>
+        </select>
+      </label>
+      <label>Message <input id="alertMessage" type="text" value="Traffic up ahead" maxlength="46"></label>
+      <div class="row alert-actions">
+        <button id="sendAlertBtn" type="button">Send</button>
+        <button id="clearAlertBtn" type="button">Clear</button>
+      </div>
     </section>
   </main>
   <script src="app.js"></script>
